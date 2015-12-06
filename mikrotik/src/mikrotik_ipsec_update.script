@@ -1,0 +1,89 @@
+#############################################################################
+##  Site-to-Site IPsec Endpoint Update Script version 1.0                  ##
+##  1. Updates IPsec policies when local IP or remote site IP changes      ##
+##  2. Updates firewall rules on IP address change                         ##
+##                                                                         ##
+##  Note: This script was adapted for IPv4 only. Feel free to adapt        ##
+##        the script for IPv6 or dual-stack environment.                   ##
+#############################################################################
+##                                                                         ##
+##  Copyright 2015 by Vladimir Zahradnik <vladimir.zahradnik@gmail.com>    ##
+##                                                                         ##
+##  This program is free software: you can redistribute it and/or modify   ##
+##  it under the terms of the GNU General Public License as published by   ##
+##  the Free Software Foundation, either version 2 or version 3 of the     ##
+##  License.                                                               ##
+##                                                                         ##
+##  This program is distributed in the hope that it will be useful,        ##
+##  but WITHOUT ANY WARRANTY; without even the implied warranty of         ##
+##  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          ##
+##  GNU General Public License for more details.                           ##
+##                                                                         ##
+##  You should have received a copy of the GNU General Public License      ##
+##  along with this program.  If not, see <http://www.gnu.org/licenses/>.  ##
+##                                                                         ##
+#############################################################################
+
+# previousIP variable is used to track IP address change on local WAN interface.
+# We assume that on WAN interface is assigned dynamic public IP address.
+# Global scope of the variable exposes this information to other scripts.
+:global previousIP
+
+# Domain name of remote site as found in DNS
+:local remoteSite "Atlantis"
+:local remoteSiteDNSdomain "atlantis.example.org"
+:local remoteSiteIP
+
+# Wait timeout in seconds
+:local timeout 10
+
+# If set to false, only events occuring on IP address change are logged
+:local verbose false
+
+# Peer comment defined in /ip/ipsec/peer
+:local ipSecPeerComment "$remoteSite Peer"
+
+# IPsec policy comment defined in /ip/ipsec/policy
+:local ipSecPolicyComment "Tunnel to $remoteSite VPN Endpoint"
+
+# Check if IP is valid, otherwise wait for IP update script
+:while ( [ :typeof $previousIP ] != "ip" ) do={
+    :if ( $verbose ) do={ :log info "IPsec Update: Waiting for IP address assignment ..." }
+    
+    :delay $timeout
+}
+
+# Get current IP of remote endpoint from DNS
+:do {
+    :if ( $verbose ) do={ :log info "IPsec Update: Getting IP address of remote endpoint ..." }
+    set remoteSiteIP [ :resolve $remoteSiteDNSdomain ]
+    
+    :delay $timeout
+} while=( [ :typeof $remoteSiteIP ] != "ip" )
+
+# Get current IPsec endpoint information
+:local saSrcAddr [ :toip [ /ip ipsec policy get [ find comment=$ipSecPolicyComment ] sa-src-address ] ]
+:local saDstAddr [ :toip [ /ip ipsec policy get [ find comment=$ipSecPolicyComment ] sa-dst-address ] ]
+
+# Check for IP address change on local WAN interface. Update endpoint IP address if necessary.
+:if ( $saSrcAddr != $previousIP ) do={
+    :log info "IPsec Update: Updating IPsec policy with new source address $previousIP ..."
+    /ip ipsec policy set [ find comment=$ipSecPolicyComment ] sa-src-address=$previousIP
+
+# Define here all IPsec firewall rules, which contain local IP of WAN interface. See commented example below.
+#   /ip firewall filter set [ find comment="Allow full traffic for $remoteSite endpoint" ] dst-address=$previousIP
+} else={
+    :if ( $verbose ) do={ :log info "IPsec Update: Source IP address has not changed." }
+}
+
+# Check for IP address change of remote IPsec peer.
+:if ( $saDstAddr != $remoteSiteIP ) do={
+    :log info "Updating IPsec policy with new destination address $remoteSiteIP ..."
+
+# Define here all IPsec firewall rules, which contain remote site IP. See commented examples below.
+#   /ip ipsec policy set [ find comment=$ipSecPolicyComment ] sa-dst-address=$remoteSiteIP
+#   /ip ipsec peer set [ find comment=$ipSecPeerComment ] address="$remoteSiteIP/32"
+#   /ip firewall filter set [ find comment="Allow full traffic to $remoteSite endpoint" ] src-address=$remoteSiteIP
+} else={
+    :if ( $verbose ) do={ :log info "IPsec Update: Destination IP address has not changed." }
+}

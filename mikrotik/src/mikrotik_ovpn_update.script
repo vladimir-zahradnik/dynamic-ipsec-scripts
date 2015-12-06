@@ -1,0 +1,58 @@
+#############################################################################
+##  OVPN Endpoint Update Script version 1.0                                ##
+##  1. Periodically checks if remote endpoint IP has changed               ##
+##  2. Updates interface and firewall rules when necessary                 ##
+##  This script uses dynamic DNS entry as a source of IP address           ##
+##                                                                         ##
+##  Note: This script was adapted for IPv4 only. Feel free to adapt        ##
+##        the script for IPv6 or dual-stack environment.                   ##
+#############################################################################
+##                                                                         ##
+##  Copyright 2015 by Vladimir Zahradnik <vladimir.zahradnik@gmail.com>    ##
+##                                                                         ##
+##  This program is free software: you can redistribute it and/or modify   ##
+##  it under the terms of the GNU General Public License as published by   ##
+##  the Free Software Foundation, either version 2 or version 3 of the     ##
+##  License.                                                               ##
+##                                                                         ##
+##  This program is distributed in the hope that it will be useful,        ##
+##  but WITHOUT ANY WARRANTY; without even the implied warranty of         ##
+##  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          ##
+##  GNU General Public License for more details.                           ##
+##                                                                         ##
+##  You should have received a copy of the GNU General Public License      ##
+##  along with this program.  If not, see <http://www.gnu.org/licenses/>.  ##
+##                                                                         ##
+#############################################################################
+
+# Domain name of remote site as found in DNS
+:local remoteSite "Atlantis"
+:local remoteSiteDNSdomain "atlantis.example.org"
+:local remoteSiteIP
+:local tunnelName "OpenVPN Tunnel to $remoteSite"
+
+# Wait timeout in seconds
+:local timeout 10
+
+# If set to false, only events occuring on IP address change are logged
+:local verbose false
+
+# Get IP from DNS, check if it is valid, otherwise wait for IP update script
+:set remoteSiteIP [ :resolve $remoteSiteDNSdomain ]
+:while ( [ :typeof $remoteSiteIP ] != "ip" ) do={
+    :if ( $verbose ) do={ :log info "OVPN Update: Waiting for valid IP address ..." }
+    set remoteSiteIP [ :resolve $remoteSiteDNSdomain ]
+    
+    :delay $timeout
+}
+
+# Get current IPsec endpoint information
+:local ovpnClientIP [ :toip [ /interface ovpn-client get [ find comment=$tunnelName ] connect-to ] ]
+
+# Update endpoint IP address if necessary
+:if ( $ovpnClientIP != $remoteSiteIP ) do={
+    :log info "OVPN Update: Updating tunnel endpoint IP address ..."
+    /interface ovpn-client set [ find comment=$tunnelName ] connect-to=$remoteSiteIP
+} else={
+    :if ( $verbose ) do={ :log info "OVPN Update: Remote endpoint IP address has not changed." }
+}

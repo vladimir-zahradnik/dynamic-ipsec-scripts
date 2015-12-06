@@ -1,0 +1,127 @@
+#############################################################################
+##  Dynamic IP Update Script version 1.0                                   ##
+##  1. Updates afraid.org DNS on WAN IP address change                     ##
+##  2. Updates firewall and NAT rules with the new IP address              ##
+##                                                                         ##
+##  Note: This script was adapted for IPv4 only. Feel free to adapt        ##
+##        the script for IPv6 or dual-stack environment.                   ##
+#############################################################################
+##                                                                         ##
+##  Copyright 2015 by Vladimir Zahradnik <vladimir.zahradnik@gmail.com>    ##
+##                                                                         ##
+##  This program is free software: you can redistribute it and/or modify   ##
+##  it under the terms of the GNU General Public License as published by   ##
+##  the Free Software Foundation, either version 2 or version 3 of the     ##
+##  License.                                                               ##
+##                                                                         ##
+##  This program is distributed in the hope that it will be useful,        ##
+##  but WITHOUT ANY WARRANTY; without even the implied warranty of         ##
+##  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          ##
+##  GNU General Public License for more details.                           ##
+##                                                                         ##
+##  You should have received a copy of the GNU General Public License      ##
+##  along with this program.  If not, see <http://www.gnu.org/licenses/>.  ##
+##                                                                         ##
+#############################################################################
+
+# previousIP variable is used to track IP address change on local WAN interface.
+# We assume that on WAN interface is assigned dynamic public IP address.
+# Global scope of the variable exposes this information to other scripts.
+:global previousIP
+
+# Wait timeout in seconds
+:local timeout 10
+
+# Local WAN interface with dynamic public IP address
+:local wanInterface "<WAN interface name>"
+
+# If set to false, only events occuring on IP address change are logged
+:local verbose false
+
+# Afraid.org DNS update credentials. If you use other DynDNS service, you should check
+# their API for IP update, but it should be similar to this.
+# Specify the Direct URL, which is https://freedns.afraid.org/dynamic/
+# Specify the URL API, which is https://freedns.afraid.org/api/
+# In both cases we use ASCII interface.
+# If RouterOS version 5.xx, then remove from the URL encryption - "https" change this to "http". Also see below.
+# In front of the sign "?" put a backslash "\".
+:local dnsDomain   "atlantis.example.org"
+:local shaLogin    "<fill sha hash in here>"
+:local directUri   "https://freedns.afraid.org/dynamic/update.php\?<fill direct uri string in here>"
+:local apiUri      "https://freedns.afraid.org/api/\?action=getdyndns&v=2&sha=$shaLogin"
+
+# This file caches last used IP on WAN interface.
+:local dnsDataFile "freedns.txt"
+
+# Function to get IPv4 address from the interface
+# Syntax : getInterfaceIP ifName=<interface_name>
+:global getInterfaceIP do={
+    :local result    [ /ip address get [/ip address find interface=$ifName ] address ]
+
+# Parse current result (exclude subnet mask)
+    :local startLoc  0
+    :local endLoc    [ :find $result "/" -1 ]
+    :local IPaddr    [ :toip [ :pick $result $startLoc $endLoc ] ]
+    
+    :return $IPaddr
+}
+
+# Function to get IPv4 address from $dnsDataFile by parsing its output
+# Syntax: getIPfromFile dnsFile=<file_name> domainName=<domain_name>
+:global getIPfromFile do={
+    :if ( [ :len [ /file find name=$dnsFile ] ] = 0 ) do={ :return [ :nothing ] }
+
+    :local result    [ /file get $dnsFile contents ]
+    
+    # Parse current result from file. If values are invalid, nil is returned.
+    :local startLoc  ( [ :find $result $domainName ] + [ :len $domainName ] + 1 )
+    :local endLoc    [ :find $result "|" from=$startLoc ]
+    :local IPaddr    [ :toip [ :pick $result $startLoc $endLoc ] ]
+    
+    :return $IPaddr
+}
+
+# Get WAN IP address and determine whether it was changed
+:local currentIP [ $getInterfaceIP ifName=$wanInterface ]
+
+# Check if IP is valid, otherwise wait for assignment of IP address
+:while ( [ :typeof $currentIP ] != "ip" ) do={
+    :log info "Waiting for IP on interface $wanInterface ..."
+    
+    :delay $timeout
+    set currentIP [ $getInterfaceIP ifName=$wanInterface ]
+}
+
+:if ( $verbose ) do={ :log info "Currently assigned IP address: $currentIP" }
+
+# Check state of previous IP. If it's not yet defined, try to find
+# last used IP on dynamic DNS service
+:if ( [ :typeof $previousIP ] != "ip"  ) do={
+    set previousIP [ $getIPfromFile dnsFile=$dnsDataFile domainName=$dnsDomain ]
+}
+
+:if ( $verbose ) do={ :log info "Previously assigned IP address: $previousIP" }
+
+# Compare current IP with previous value and do update if necessary
+:if ( [ :typeof $previousIP ] != "ip" or $currentIP != $previousIP ) do={
+    :log info "Dynamic DNS Update: IP address on interface $wanInterface was changed to $currentIP"
+    :set previousIP $currentIP
+
+# Update firewall rules
+    :log info "Updating firewall rules with new IP $currentIP ..."
+
+# Define here all firewall rules (except IPsec rules), which contain local IP of WAN interface. See commented example below.
+#   /ip firewall filter set [ find comment="<comment on firewall rule>" ] dst-address=$currentIP
+    
+# Update dynamic DNS service
+    :log info "Updating Dynamic DNS Service with new IP..."
+    /tool fetch mode=https url=$directUri keep-result=no   
+    
+    :log info "Dynamic DNS Update: Finished"
+
+# Get up-to-date local file with dynamic DNS entries
+    :delay 5
+    /tool fetch mode=https url=$apiUri dst-path="/$dnsDataFile"
+} else={
+    :if ( $verbose ) do={ :log info "Dynamic DNS Update: IP address has not changed." }
+}
