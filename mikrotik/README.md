@@ -21,7 +21,7 @@ This script tracks for changes of locally asigned IP address as well as IP chang
 
 This script is not needed in pure IPsec setup. However it may be useful in cases, where there is another VPN on endpoint with dynamic IP. It is running on a client router and is tracking for endpoint IP changes.
 
-### Setup
+## Setup
 
 - Before you import the scripts, you should review them and modify to suit your needs. Albeit they are quite generic, some information should be updated. Put there your credentials to dynamic DNS service, domain names and DNS entry name for your sites. You should also configure, which router rules should be updated. You can find commented examples in the scripts.
 - Import the scripts and configure Scheduler to run them periodically. Alternative is to set up a trigger which tracks reachability of given IP.
