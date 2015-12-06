@@ -9,6 +9,8 @@ Here are specific instruction to scripts created for RouterOS platform and were 
 
 ## Description of scripts
 
+The scripts want to access specified interfaces or rules directly on the router. Interfaces are matched using _interface-name_, but rules are represented on router just as entries with number. To identify the specific rule with highest confidence, script finds the match using comment on the rule. Therefore make sure the rules and interfaces have proper comment and put this exact comment into scripts.
+
 ### mikrotik_dns_update.script
 
 This script tracks assigned IP address on WAN interface of the router. It assumes that the interface has assigned public IP address directly from your ISP. If the ISP assigns new IP address, on next scheduled run will the script update the dynamic DNS service. This script makes the assigned IP available as a global variable available to the whole system and other scripts.
