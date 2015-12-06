@@ -1,10 +1,10 @@
 # dynamic-ipsec-scripts
 
-Scripts present in here should be helpful in a case, when you want to create VPN across two sites based on IPsec. Site-to-site IPsec requires on both endpoints public static IP adresses, which is more expensive than using dynamic IP addresses.
+Scripts present in here should be helpful in a case, where you want to create VPN across two sites based on IPsec. Site-to-site IPsec requires on both endpoints public static IP adresses, which is more expensive than using dynamic IP addresses.
 
 ## Prerequisites
 
-All sites, where will be VPN, require public IP. This is a limitation of IPsec protocol in site-to-site mode. If it's not possible to get public IP on either of your sites, try other VPN solution instead, e.g. [OpenVPN](https://openvpn.net/).
+All sites, where will be IPsec-based VPN, require public IP. This is a limitation of IPsec protocol in site-to-site mode. If it's not possible to get public IP on either of your sites, try other VPN solution instead, e.g. [OpenVPN](https://openvpn.net/).
 
 ## How does it work
 - Customer sets up IPsec tunnel across two sites. In configuration should be set endpoint IP addresses, which are assigned to routers at the moment.
