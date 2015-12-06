@@ -1,0 +1,22 @@
+# Mikrotik scripts
+
+Here are specific instruction to scripts created for RouterOS platform and were tested across two sites, both running RouterOS of the same version.
+
+## Prerequisites
+
+- Configure site-to-site IPsec tunnel across both sites. Public IP is a must for both endpoints. This [webpage](http://wiki.mikrotik.com/wiki/Manual:IP/IPsec) is a good place to start. I've been using IPsec in ESP tunnel mode, but other modes should in theory work just fine.
+- Set up account on dynamic DNS service provider. The scripts use [freedns.afraid.org](http://freedns.afraid.org/), but other services should work as well. You will just need to modify the scripts to work with different DNS service (make sure they have public API available).
+
+## Script description
+
+### mikrotik_dns_update.script
+
+This script tracks assigned IP address on WAN interface of the router. It assumes that the interface has assigned public IP address directly from your ISP. If the ISP assigns new IP address, on next scheduled run will the script update the dynamic DNS service. This script makes the assigned IP available as a global variable available to the whole system and other scripts.
+
+### mikrotik_ipsec_update.script
+
+This script tracks for changes of locally asigned IP address as well as IP change on remote IPsec endpoint. In either cases it will update IPsec policies, peer information and firewall rules.
+
+### mikrotik_ovpn_update.script
+
+This script is not needed in pure IPsec setup. However it may be useful in cases, where there is another VPN on endpoint with dynamic IP. It is running on a client router and is tracking for endpoint IP changes.
