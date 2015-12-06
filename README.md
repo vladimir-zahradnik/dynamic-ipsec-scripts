@@ -15,4 +15,4 @@ All sites, where will be IPsec-based VPN, require public IP. This is a limitatio
 
 At this moment, scripts are available for Mikrotik's RouterOS platform and were tested on latest version 6.x.x.
 
-For details on how to use the scripts in [RouterOS](http://www.mikrotik.com/), see Readme file in the [mikrotik](/mikrotik) directory.
+For details on how to use the scripts in [RouterOS](http://www.mikrotik.com/), see [Readme file](/mikrotik/README.md) in the [mikrotik](/mikrotik) directory.
